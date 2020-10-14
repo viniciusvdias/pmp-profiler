@@ -1,0 +1,22 @@
+#!/bin/bash
+pid=$1
+nsamples=$2
+sleeptime=$3
+
+if [ "$#" -ne 3 ]; then
+   printf "PMP-Profiler (add -ggdb flag to compiler for line numbers)\nusage: ./pmp.sh <pid> <nsamples> <sampleinterval>\n"
+   exit 1
+fi
+
+for x in $(seq 1 $nsamples)
+  do
+    gdb -ex "set pagination 0" -ex "thread apply all bt" -batch -p $pid
+    sleep $sleeptime
+  done | \
+awk '
+  BEGIN { s = ""; } 
+  /^Thread/ { print s; s = ""; } 
+  /^#/ { if (s != "" ) { s = s "," $4 "[" $7 "]"} else { s = $4 "[" $7 "]"} } 
+  END { print s }' | \
+sort | uniq -c | sort -r -n -k 1,1 | \
+awk 'BEGIN {printf "%10s %s\n", "#samples","stack"} {printf "%10s %s\n", $1,$2}'
